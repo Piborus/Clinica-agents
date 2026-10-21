@@ -1,0 +1,229 @@
+---
+alwaysApply: true
+---
+
+# Estrutura de Páginas — Padrão Vue.js
+
+Este documento define a organização das páginas deste projeto, que usa Vue.js, Vite, Vue Router e Pinia. O projeto é uma SPA: não use convenções do Next.js, como `app/`, `page.tsx`, Server Components, Server Actions, `"use client"` ou roteamento automático por arquivos.
+
+## Estrutura base
+
+```text
+src/
+├── router/
+│   └── index.ts                  # Registro central das rotas
+├── views/
+│   └── account/
+│       ├── AccountView.vue       # Componente associado à rota
+│       ├── components/           # Componentes exclusivos da página
+│       │   └── AccountForm.vue
+│       ├── composables/          # Estado e comportamento da feature
+│       │   └── useAccount.ts
+│       ├── services/             # Chamadas à API da feature
+│       │   └── accountService.ts
+│       ├── schemas/              # Esquemas de validação, quando aplicável
+│       │   └── accountSchema.ts
+│       └── types.ts              # Tipos exclusivos da feature
+├── components/                   # Componentes compartilhados
+├── composables/                  # Composables compartilhados
+├── services/                     # Clientes de API compartilhados
+└── stores/                       # Stores Pinia compartilhadas
+```
+
+Crie somente as pastas necessárias. Uma página simples pode conter apenas o arquivo `*View.vue`.
+
+## 1. `*View.vue` — página de rota
+
+- É o ponto de entrada visual de uma rota.
+- Coordena componentes, composables e dados da página.
+- Deve usar Single-File Components e `<script setup lang="ts">`.
+- Não deve conter acesso direto ao banco, segredos ou regras de negócio do servidor.
+- Deve permanecer pequena; extraia blocos de UI e comportamentos complexos.
+
+```vue
+<!-- src/views/account/AccountView.vue -->
+<script setup lang="ts">
+import AccountForm from './components/AccountForm.vue'
+import { useAccount } from './composables/useAccount'
+
+const { account, isLoading, error, updateAccount } = useAccount()
+</script>
+
+<template>
+  <main>
+    <p v-if="isLoading">Carregando...</p>
+    <p v-else-if="error" role="alert">{{ error }}</p>
+    <AccountForm v-else-if="account" :account="account" @submit="updateAccount" />
+  </main>
+</template>
+```
+
+## 2. `components/` — componentes da página
+
+- Contém componentes usados apenas pela feature ou página atual.
+- Use nomes em PascalCase e arquivos `.vue`.
+- Declare props com `defineProps<T>()` e eventos com `defineEmits<T>()`.
+- Componentes de apresentação recebem dados por props e comunicam ações por eventos.
+- Mova um componente para `src/components/` somente quando ele for realmente compartilhado.
+
+```vue
+<!-- components/AccountForm.vue -->
+<script setup lang="ts">
+import { reactive } from 'vue'
+import type { Account, UpdateAccountInput } from '../types'
+
+const props = defineProps<{ account: Account }>()
+const emit = defineEmits<{ submit: [input: UpdateAccountInput] }>()
+const form = reactive<UpdateAccountInput>({ name: props.account.name })
+
+function handleSubmit() {
+  emit('submit', { ...form })
+}
+</script>
+
+<template>
+  <form @submit.prevent="handleSubmit">
+    <label for="name">Nome</label>
+    <input id="name" v-model="form.name" name="name" />
+    <button type="submit">Salvar</button>
+  </form>
+</template>
+```
+
+## 3. `composables/` — estado e comportamento
+
+- Extraia lógica reativa, ciclo de vida e coordenação de chamadas assíncronas.
+- Prefixe o nome com `use`, por exemplo `useAccount`.
+- Use `ref`, `reactive`, `computed`, `watch` e hooks de ciclo de vida somente quando necessários.
+- Faça limpeza de listeners, timers e requisições ao desmontar o componente.
+- Não transforme todo comportamento em composable; lógica simples pode ficar na página.
+
+```ts
+// composables/useAccount.ts
+import { onMounted, ref } from 'vue'
+import { getAccount, saveAccount } from '../services/accountService'
+import type { Account, UpdateAccountInput } from '../types'
+
+export function useAccount() {
+  const account = ref<Account | null>(null)
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+
+  async function loadAccount() {
+    isLoading.value = true
+    error.value = null
+    try {
+      account.value = await getAccount()
+    } catch {
+      error.value = 'Não foi possível carregar a conta.'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function updateAccount(input: UpdateAccountInput) {
+    account.value = await saveAccount(input)
+  }
+
+  onMounted(loadAccount)
+  return { account, isLoading, error, updateAccount }
+}
+```
+
+## 4. `services/` — acesso à API
+
+- Centralize chamadas HTTP e integrações externas.
+- Retorne dados tipados e normalize erros de transporte.
+- Não acesse o banco diretamente pelo navegador.
+- Nunca coloque credenciais privadas ou chaves de servidor no frontend.
+- Validação no cliente melhora a experiência, mas não substitui validação, autenticação e autorização no backend.
+
+```ts
+// services/accountService.ts
+import type { Account, UpdateAccountInput } from '../types'
+
+export async function getAccount(): Promise<Account> {
+  const response = await fetch('/api/account')
+  if (!response.ok) throw new Error('Falha ao carregar a conta')
+  return response.json() as Promise<Account>
+}
+
+export async function saveAccount(input: UpdateAccountInput): Promise<Account> {
+  const response = await fetch('/api/account', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) throw new Error('Falha ao atualizar a conta')
+  return response.json() as Promise<Account>
+}
+```
+
+## 5. `stores/` — estado global com Pinia
+
+- Use Pinia apenas para estado compartilhado entre rotas ou componentes distantes.
+- Prefira estado local ou composables para comportamento restrito a uma página.
+- Stores não substituem services: a store pode chamar um service, mas não deve duplicar o cliente HTTP.
+- Não armazene segredos ou dados sensíveis desnecessários no navegador.
+
+## Rotas com Vue Router
+
+Toda página deve ser registrada explicitamente em `src/router/index.ts`. Use importação dinâmica para dividir o bundle por rota.
+
+```ts
+const routes = [
+  {
+    path: '/account',
+    name: 'account',
+    component: () => import('@/views/account/AccountView.vue'),
+  },
+]
+```
+
+- Use nomes de rota estáveis e únicos.
+- Declare requisitos de autenticação em `meta` e aplique-os em guards centralizados.
+- Prefira props de rota quando isso desacoplar a página do router e simplificar testes.
+- Crie uma rota de fallback (`/:pathMatch(.*)*`) para páginas não encontradas.
+
+## Fluxo de dados
+
+```text
+Vue Router
+  → carrega *View.vue
+  → a página usa um composable
+  → o composable chama um service
+  → o service acessa a API
+  → refs/computed são atualizados
+  → o template reage ao novo estado
+```
+
+Para alterações, o componente emite um evento, a página ou composable valida e chama o service, e o estado reativo é atualizado após a resposta.
+
+## Boas práticas
+
+- Use Composition API e `<script setup lang="ts">` como padrão.
+- Não use APIs de React (`useState`, `useEffect`, JSX/TSX) em componentes Vue.
+- Não desestruture objetos reativos sem `toRefs`, pois isso pode perder reatividade.
+- Use `computed` para estado derivado e `watch` somente para efeitos colaterais necessários.
+- Trate explicitamente os estados de carregamento, vazio, sucesso e erro.
+- Use `onUnmounted` ou APIs equivalentes para limpar efeitos.
+- Mantenha autenticação e autorização efetivas também no backend.
+- Use HTML semântico e acessível; inputs precisam de labels e erros associados.
+- Teste componentes com Vitest e Vue Test Utils; teste fluxos críticos com Playwright.
+
+## Convenções de nomes
+
+- Páginas: `AccountView.vue`.
+- Componentes: `AccountForm.vue`.
+- Composables: `useAccount.ts`.
+- Stores: `useAccountStore.ts`.
+- Services: `accountService.ts`.
+- Handlers: `handleSubmit`, `handleClick`.
+- Booleanos: `isLoading`, `hasError`, `canSubmit`.
+
+## Atenção
+
+- Vite + Vue Router não cria rotas pela estrutura de arquivos; registre cada rota.
+- Este projeto não possui separação automática entre código servidor e cliente. Tudo importado pelo frontend pode chegar ao navegador.
+- Não aplique recomendações de hidratação ou Server Components enquanto o projeto continuar como SPA sem SSR.
+- Se SSR passar a ser necessário, reavalie a arquitetura explicitamente; não introduza padrões de Nuxt ou Next.js por conta própria.

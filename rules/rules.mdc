@@ -1,0 +1,151 @@
+---
+description: Regras para criar componentes, páginas e rotas com Vue.js
+globs:
+alwaysApply: true
+---
+
+# Stack do projeto
+
+- Use Vue.js com Vite, Vue Router, Pinia e TypeScript, respeitando as versões instaladas em `package.json`.
+- Use Single-File Components (`.vue`) e Composition API com `<script setup lang="ts">`.
+- Não introduza padrões ou APIs de Next.js, React ou Nuxt sem uma decisão explícita de arquitetura.
+- Antes de usar uma biblioteca, confirme que ela está instalada e configurada no projeto.
+
+# Estrutura modular
+
+```text
+src/
+├── views/          # Páginas associadas às rotas
+├── components/     # Componentes compartilhados
+├── composables/    # Lógica reativa reutilizável
+├── services/       # Clientes HTTP e integrações
+├── stores/         # Estado global Pinia
+├── router/         # Configuração do Vue Router
+├── types/          # Tipos compartilhados
+└── assets/         # Estilos e arquivos processados pelo Vite
+```
+
+- Coloque arquivos exclusivos de uma feature próximos da respectiva página em `src/views/<feature>/`.
+- Mantenha lógica de negócio e acesso a dados separados da apresentação.
+- Não crie pastas vazias ou camadas sem necessidade real.
+
+# Vue Router
+
+- Registre páginas explicitamente em `src/router/index.ts`; este projeto não usa roteamento baseado em arquivos.
+- Nomeie componentes de página como `*View.vue`.
+- Use importações dinâmicas para lazy loading: `() => import('@/views/...')`.
+- Centralize guards de autenticação e autorização no router e use `meta` para requisitos declarativos.
+- Inclua uma rota de fallback para URLs desconhecidas.
+- Com `createWebHistory`, configure o servidor para redirecionar rotas desconhecidas para `index.html`.
+
+# Posicionamento de componentes
+
+- Se um componente for usado por apenas uma página, coloque-o em `src/views/<feature>/components/`.
+- Coloque em `src/components/` apenas componentes usados em múltiplas features.
+- Prefira componentes pequenos, focados e acessíveis.
+- Use composição, slots e props antes de criar abstrações excessivamente genéricas.
+
+# Componentes Vue
+
+- Use `<script setup lang="ts">` por padrão.
+- Defina props com `defineProps<T>()` e eventos com `defineEmits<T>()`.
+- Use `defineModel()` quando o componente realmente representar uma ligação bidirecional.
+- Não altere props diretamente.
+- Mantenha estado local com `ref` ou `reactive` e estado derivado com `computed`.
+- Use `watch` e `watchEffect` somente para efeitos colaterais necessários.
+- Limpe listeners, observers, timers e requisições ao desmontar o componente.
+- Evite componentes monolíticos e lógica complexa em templates.
+
+# Composables
+
+- Prefixe composables com `use`, por exemplo `useAuth` e `useForm`.
+- Use-os para compartilhar comportamento reativo, não como depósito genérico de funções.
+- Exponha uma API pequena e tipada e preserve reatividade ao retornar valores.
+- Coloque composables locais dentro da feature e compartilhados em `src/composables/`.
+
+# Estado com Pinia
+
+- Use Pinia para estado compartilhado entre múltiplas áreas da aplicação.
+- Prefira estado local para dados que pertencem a um único componente ou página.
+- Evite duplicar o mesmo estado entre store, composable e componente.
+- Stores podem orquestrar services, mas chamadas HTTP devem permanecer centralizadas nos services.
+- Não persista tokens ou dados sensíveis sem uma análise explícita de segurança.
+
+# Acesso a dados e services
+
+- Não misture detalhes de `fetch` ou SDKs externos em componentes de apresentação.
+- Centralize cliente HTTP, cabeçalhos, serialização e normalização de erros.
+- Tipifique inputs e respostas da API.
+- Considere cancelamento de requisições e respostas fora de ordem em buscas reativas.
+- Nunca conecte o frontend diretamente ao banco com credenciais privilegiadas.
+- Validação no frontend não substitui validação, autenticação e autorização no backend.
+
+# Formulários
+
+- Use `v-model`, submissão com `@submit.prevent` e HTML semântico.
+- Associe cada campo a um `label` e exponha erros de forma acessível.
+- Valide no cliente para feedback imediato e repita a validação no backend.
+- Use uma biblioteca de formulários ou schemas somente se ela estiver instalada e trouxer benefício concreto.
+- Mantenha schemas separados da UI quando forem compartilhados ou complexos.
+- Desabilite submissões duplicadas enquanto uma operação estiver em andamento.
+
+# UI e estilos
+
+- Reutilize primeiro os componentes e padrões visuais existentes no projeto.
+- Não presuma que Shadcn UI, Radix UI, Tailwind CSS ou outra biblioteca React esteja disponível.
+- Se uma biblioteca Vue for adotada, siga sua API e requisitos de acessibilidade.
+- Evite estilos inline quando classes ou estilos scoped forem mais claros.
+- Use `<style scoped>` para estilos locais e mantenha tokens e estilos globais centralizados.
+
+# TypeScript e nomenclatura
+
+- Evite `any`; modele props, eventos, estado e respostas da API.
+- Prefixe handlers com `handle`: `handleClick`, `handleSubmit`.
+- Prefixe booleanos com verbos: `isLoading`, `hasError`, `canSubmit`.
+- Prefixe composables com `use`.
+- Nomeie componentes em PascalCase e use o mesmo nome nos imports.
+- Prefira `import type` para imports exclusivamente de tipos.
+
+# Qualidade
+
+- Mantenha funções e componentes com uma responsabilidade clara.
+- Evite prop drilling excessivo; use composição, provide/inject ou Pinia conforme o escopo.
+- Trate estados de carregamento, vazio, erro e sucesso.
+- Revise aliases e caminhos de importação após mover arquivos.
+- Documente decisões não óbvias; não adicione comentários que apenas repitam o código.
+
+# Testes
+
+- Use Vitest para testes unitários e de integração.
+- Use Vue Test Utils para montar e interagir com componentes Vue.
+- Use Playwright para fluxos end-to-end críticos.
+- Teste comportamento observável, acessibilidade e contratos, evitando detalhes internos de implementação.
+- Cubra principalmente regras críticas, services, stores, composables e estados de erro.
+
+# Segurança
+
+- Use arquivos `.env` para configuração, lembrando que variáveis `VITE_` ficam disponíveis no navegador.
+- Nunca exponha segredos, chaves privadas ou credenciais administrativas no frontend.
+- Evite `v-html`; quando inevitável, sanitize conteúdo não confiável.
+- Implemente autenticação e autorização efetivas no backend, além dos guards de navegação.
+- Se Supabase for usado, exponha apenas a chave pública apropriada, aplique Row Level Security e nunca envie a service role key ao cliente.
+
+# Performance
+
+- Use lazy loading por rota e imports dinâmicos para módulos grandes.
+- Evite watchers profundos e renderizações desnecessárias.
+- Use chaves estáveis em `v-for`; não use o índice quando a lista puder mudar.
+- Meça antes de otimizar e acompanhe Lighthouse e Web Vitals quando relevante.
+- Otimize imagens e recursos estáticos conforme o alvo de implantação.
+
+# Build, implantação e observabilidade
+
+- Valide mudanças com type-check, testes e build do Vite.
+- Configure fallback de SPA e cache de assets com hash no servidor de hospedagem.
+- Apresente mensagens úteis para erros esperados e registre falhas inesperadas.
+- Integre monitoramento somente quando configurado e sem enviar dados sensíveis.
+- Mantenha dependências atualizadas, respeitando versões fixadas e avaliando breaking changes de Vue, Vite, Vue Router e Pinia.
+
+# Referência adicional
+
+Para a estrutura detalhada de páginas e exemplos, siga `rules/page-rules.mdc`.

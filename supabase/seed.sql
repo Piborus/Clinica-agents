@@ -1,0 +1,1 @@
+-- O seed intencionalmente não contém dados clínicos. Use a interface ou testes isolados para criar dados sintéticos.

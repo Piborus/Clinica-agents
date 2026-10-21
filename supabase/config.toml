@@ -1,0 +1,46 @@
+project_id = "psi-manager"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+
+[local_smtp]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/auth/callback", "http://localhost:5173/redefinir-senha", "http://localhost:4173/auth/callback", "http://localhost:4173/redefinir-senha"]
+jwt_expiry = 3600
+enable_signup = true
+minimum_password_length = 10
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+[functions.attachments-upload]
+verify_jwt = true
+[functions.attachments-access]
+verify_jwt = true
+[functions.attachments-remove]
+verify_jwt = true
+[functions.export-record]
+verify_jwt = true

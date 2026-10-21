@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx supabase start
+      - run: npx supabase status -o env >> "$GITHUB_ENV"
+      - run: npm run db:reset
+      - run: npm run db:test
+      - name: Verify generated database types
+        run: |
+          npx supabase gen types typescript --local --schema public > /tmp/database.generated.ts
+          npx prettier --write --experimental-cli /tmp/database.generated.ts
+          diff -u src/types/database.generated.ts /tmp/database.generated.ts
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run type-check
+      - run: npm run test:unit -- --run
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ env.API_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ env.ANON_KEY }}
+      - run: npm run test:e2e -- --project=chromium
+        env:
+          CI: true
+          VITE_SUPABASE_URL: ${{ env.API_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ env.ANON_KEY }}
+          API_URL: ${{ env.API_URL }}
+          SERVICE_ROLE_KEY: ${{ env.SERVICE_ROLE_KEY }}
