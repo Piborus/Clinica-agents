@@ -22,7 +22,7 @@ jobs:
       - name: Verify generated database types
         run: |
           npx supabase gen types typescript --local --schema public > /tmp/database.generated.ts
-          npx prettier --write --experimental-cli /tmp/database.generated.ts
+          npx prettier --write --config .prettierrc.json /tmp/database.generated.ts
           diff -u src/types/database.generated.ts /tmp/database.generated.ts
       - run: npm run lint
       - run: npm run format:check
